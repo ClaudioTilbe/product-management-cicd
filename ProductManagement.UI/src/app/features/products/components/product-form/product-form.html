@@ -1,0 +1,122 @@
+<div class="form-container">
+
+  <mat-form-field appearance="outline">
+
+    <mat-label> Name </mat-label>
+
+    <input id="product-name" matInput [(ngModel)]="formProduct.name">
+
+  </mat-form-field>
+
+
+
+
+
+  <mat-form-field appearance="outline">
+
+    <mat-label>Description</mat-label>
+
+
+    <textarea id="product-description" matInput rows="4" 
+              [(ngModel)]="formProduct.description"> 
+    </textarea>
+
+
+  </mat-form-field>
+
+
+
+
+
+  <mat-form-field appearance="outline">
+
+
+    <mat-label>
+      Price
+    </mat-label>
+
+
+    <input
+
+      id="product-price"
+
+      matInput
+
+      type="number"
+
+      [(ngModel)]="formProduct.price">
+
+
+  </mat-form-field>
+
+
+
+
+
+  <mat-form-field appearance="outline">
+
+
+    <mat-label>
+      Stock
+    </mat-label>
+
+
+    <input
+
+      id="product-stock"
+
+      matInput
+
+      type="number"
+
+      [(ngModel)]="formProduct.stock">
+
+
+  </mat-form-field>
+
+
+
+
+
+  <mat-checkbox
+
+    id="product-active"
+
+    [(ngModel)]="formProduct.isActive">
+
+
+    Active
+
+
+  </mat-checkbox>
+
+
+
+
+
+  <div class="button-container">
+
+
+    <button
+
+      id="btn-save-product"
+
+      mat-raised-button
+
+      color="primary"
+
+      (click)="save()">
+
+
+
+      Save
+
+
+
+    </button>
+
+
+  </div>
+
+
+</div>

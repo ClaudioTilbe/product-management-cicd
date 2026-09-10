@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="ProductManagement.API/ProductManagement.API.csproj" Id="ef89cff7-5a70-4fb8-afca-6cf0fe841d2e" />
+  <Project Path="ProductManagement.Domain/ProductManagement.Domain.csproj" Id="569d146a-0e48-4179-9626-872383f20e8f" />
+  <Project Path="ProductManagement.Infrastructure/ProductManagement.Infrastructure.csproj" Id="dab54fe1-bc45-4196-bf2b-b2a1f949625f" />
+  <Project Path="ProductManagement.IntegrationTests/ProductManagement.IntegrationTests.csproj" Id="7255fd1f-231b-4f05-902a-66d81410db9f" />
+  <Project Path="ProductManagement.UITests/ProductManagement.UITests.csproj" Id="d8bf526f-69dc-4d04-8589-9a5240936e0c" />
+  <Project Path="ProductManagement.UnitTests/ProductManagement.UnitTests.csproj" Id="b1063245-c316-40e6-b45e-61760c1512cc" />
+</Solution>

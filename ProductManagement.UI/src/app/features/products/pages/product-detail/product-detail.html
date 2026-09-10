@@ -1,0 +1,177 @@
+<div class="product-detail-container">
+
+
+  <div class="toolbar">
+
+
+    <h2 id="product-detail-title">
+      Product Detail
+    </h2>
+
+
+
+    <button
+
+      id="btn-back-products"
+
+      mat-raised-button
+
+      routerLink="/products">
+
+
+      <mat-icon>
+        arrow_back
+      </mat-icon>
+
+
+      Back to Products
+
+
+    </button>
+
+
+  </div>
+
+
+
+
+
+  @if(product)
+
+  {
+
+
+    <div
+
+      id="product-detail-card"
+
+      class="product-card">
+
+
+
+      <div class="detail-row">
+
+        <strong>
+          ID:
+        </strong>
+
+        <span id="product-id">
+          {{ product.id }}
+        </span>
+
+      </div>
+
+
+
+
+      <div class="detail-row">
+
+        <strong>
+          Name:
+        </strong>
+
+        <span id="product-name">
+          {{ product.name }}
+        </span>
+
+      </div>
+
+
+
+
+      <div class="detail-row">
+
+        <strong>
+          Description:
+        </strong>
+
+        <span id="product-description">
+          {{ product.description }}
+        </span>
+
+      </div>
+
+
+
+
+      <div class="detail-row">
+
+        <strong>
+          Price:
+        </strong>
+
+        <span id="product-price">
+          ${{ product.price }}
+        </span>
+
+      </div>
+
+
+
+
+      <div class="detail-row">
+
+        <strong>
+          Stock:
+        </strong>
+
+        <span id="product-stock">
+          {{ product.stock }}
+        </span>
+
+      </div>
+
+
+
+
+      <div class="detail-row">
+
+        <strong>
+          Active:
+        </strong>
+
+
+        @if(product.isActive)
+
+        {
+
+          <span
+
+            id="product-active"
+
+            class="status-yes">
+
+            Yes
+
+          </span>
+
+        }
+
+        @else
+
+        {
+
+          <span
+
+            id="product-active"
+
+            class="status-no">
+
+            No
+
+          </span>
+
+        }
+
+
+      </div>
+
+
+
+    </div>
+
+
+  }
+
+
+</div>

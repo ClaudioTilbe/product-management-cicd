@@ -1,0 +1,81 @@
+.product-detail-container {
+
+
+  padding: 20px;
+
+
+}
+
+
+
+.toolbar {
+
+
+  display:flex;
+
+  justify-content:space-between;
+
+  align-items:center;
+
+  margin-bottom:20px;
+
+
+}
+
+
+
+.product-card {
+
+
+  border-radius:8px;
+
+  padding:20px;
+
+  border:1px solid #ddd;
+
+  max-width:600px;
+
+
+}
+
+
+
+.detail-row {
+
+
+  display:flex;
+
+  gap:15px;
+
+  margin-bottom:15px;
+
+
+}
+
+
+
+.detail-row strong {
+
+
+  width:120px;
+
+
+}
+
+
+
+.status-yes {
+
+
+  color:green;
+
+}
+
+
+
+.status-no {
+
+
+  color:red;
+
+}

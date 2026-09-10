@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.vs/
+**/.angular/
+.git/
+.env
+*.md
+# CAMBIO: patrones correctos para excluir proyectos de test
+ProductManagement.UITests/
+ProductManagement.UnitTests/
+ProductManagement.IntegrationTests/

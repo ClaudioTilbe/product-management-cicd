@@ -1,0 +1,557 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  NODE_VERSION: '22.x'
+
+jobs:
+
+  # ─────────────────────────────────────────────────────────
+  # JOB 1 — BUILD
+  # ─────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Restore .NET dependencies
+        run: dotnet restore
+
+      - name: Build .NET
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Install Angular dependencies
+        working-directory: ProductManagement.UI
+        run: npm ci
+
+      - name: Build Angular
+        working-directory: ProductManagement.UI
+        run: npm run build -- --configuration production
+
+  # ─────────────────────────────────────────────────────────
+  # JOB 2 — UNIT TESTS
+  # ─────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Run Unit Tests
+        run: |
+          dotnet test ProductManagement.UnitTests \
+            --configuration Release \
+            --logger "trx;LogFileName=unit-results.trx" \
+            --results-directory ./test-results
+
+      - name: Publish results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Unit Test Results
+          path: ./test-results/unit-results.trx
+          reporter: dotnet-trx
+
+  # ─────────────────────────────────────────────────────────
+  # JOB 3 — INTEGRATION TESTS
+  # ─────────────────────────────────────────────────────────
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          SA_PASSWORD: ${{ secrets.SQL_PASSWORD }}
+        ports:
+          - "1433:1433"
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$SA_PASSWORD\" -Q \"SELECT 1\" -No"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 30s
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Run Integration Tests
+        env:
+          ASPNETCORE_ENVIRONMENT: Testing
+          ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=ProductManagement_TestDb;User Id=sa;Password=${{ secrets.SQL_PASSWORD }};TrustServerCertificate=True;"
+        run: |
+          dotnet test ProductManagement.IntegrationTests \
+            --configuration Release \
+            --logger "trx;LogFileName=integration-results.trx" \
+            --results-directory ./test-results
+
+      - name: Publish results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Integration Test Results
+          path: ./test-results/integration-results.trx
+          reporter: dotnet-trx
+  # ─────────────────────────────────────────────────────────
+  # JOB 4 — UI TESTS
+  # Toda la infraestructura se levanta mediante docker-compose.test.yml
+  # sqlserver → api → ui → selenium hub → chrome/edge
+  # ─────────────────────────────────────────────────────────
+  ui-tests:
+    name: UI Tests
+    runs-on: ubuntu-latest
+    needs: integration-tests
+  
+    steps:
+  
+      - uses: actions/checkout@v4
+  
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+  
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+  
+      - name: Start Test Environment
+        env:
+          SQL_PASSWORD: ${{ secrets.SQL_PASSWORD }}
+        run: |
+          docker compose \
+            -f docker-compose.test.yml \
+            up --build -d
+  
+      - name: Wait for Selenium Grid
+        run: |
+          timeout 120 bash -c '
+            until curl -sf http://localhost:4444/status > /dev/null
+            do
+              echo "Waiting for Selenium Hub..."
+              sleep 2
+            done
+  
+            until [ "$(curl -sf http://localhost:4444/status \
+              | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d[\"value\"][\"nodes\"]))")" -ge 2 ]
+            do
+              echo "Waiting for Chrome and Edge nodes..."
+              sleep 2
+            done
+  
+            echo "Selenium Grid is ready."
+          '
+          
+      - name: Run UI Tests
+        env:
+          USE_GRID: "true"
+          GRID_URL: "http://localhost:4444/wd/hub"
+          BASE_URL: "http://ui"
+      
+          ConnectionStrings__DefaultConnection: >
+            Server=localhost,1433;
+            Database=ProductManagement_TestDb;
+            User Id=sa;
+            Password=${{ secrets.SQL_PASSWORD }};
+            TrustServerCertificate=True;
+            Encrypt=False;
+      
+        run: |
+          dotnet test ProductManagement.UITests \
+            --configuration Release \
+            --logger "trx;LogFileName=ui-results.trx" \
+            --results-directory ./test-results
+        
+      - name: Publish results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: UI Test Results
+          path: ./test-results/ui-results.trx
+          reporter: dotnet-trx
+  
+      - name: Show Docker Logs
+        if: failure()
+        run: |
+          echo "===================="
+          echo "API"
+          echo "===================="
+          docker logs api || true
+
+          echo "===================="
+          echo "UI"
+          echo "===================="
+          docker logs ui || true
+
+          echo "===================="
+          echo "SELENIUM HUB"
+          echo "===================="
+          docker logs selenium-hub || true
+
+          echo "===================="
+          echo "CHROME"
+          echo "===================="
+          docker logs chrome || true
+
+          echo "===================="
+          echo "EDGE"
+          echo "===================="
+          docker logs edge || true
+  
+      - name: Stop Test Environment
+        if: always()
+        run: |
+          docker compose \
+            -f docker-compose.test.yml \
+            down -v
+        
+  # ─────────────────────────────────────────────────────────
+  # JOB 5 — DEPLOY TO STAGING
+  # Publica las imágenes en GHCR y despliega un entorno
+  # Staging utilizando docker-compose.staging.yml
+  # ─────────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: ui-tests
+    if: github.event_name == 'push'
+  
+    steps:
+  
+      - uses: actions/checkout@v4
+
+      # -----------------------------------------------------
+      # Normalizar nombre del repositorio
+      # Docker requiere nombres completamente en minúsculas
+      # -----------------------------------------------------
+      
+      - name: Normalize Repository Name
+        run: |
+          echo "REPOSITORY_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+    
+      # -----------------------------------------------------
+      # Login a GitHub Container Registry
+      # -----------------------------------------------------
+  
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+  
+      # -----------------------------------------------------
+      # Build y Push API
+      # -----------------------------------------------------
+  
+      - name: Build and Push API Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ProductManagement.API/Dockerfile
+          push: true
+          tags: ghcr.io/${{ env.REPOSITORY_LC }}/api:staging
+  
+      # -----------------------------------------------------
+      # Build y Push UI
+      # -----------------------------------------------------
+  
+      - name: Build and Push UI Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ProductManagement.UI
+          file: ProductManagement.UI/Dockerfile
+          push: true
+          tags: ghcr.io/${{ env.REPOSITORY_LC }}/ui:staging
+  
+      # -----------------------------------------------------
+      # Levantar Staging
+      # -----------------------------------------------------
+  
+      - name: Start Staging Environment
+        env:
+          SQL_PASSWORD: ${{ secrets.SQL_PASSWORD }}
+          GITHUB_REPOSITORY: ${{ env.REPOSITORY_LC }}
+        run: |
+          docker compose \
+            -f docker-compose.staging.yml \
+            up -d
+
+      - name: Show Running Containers
+        run: |
+          docker ps -a
+  
+      # -----------------------------------------------------
+      # Esperar API
+      # -----------------------------------------------------
+  
+      - name: Wait for API
+        run: |
+          timeout 120 bash -c '
+            until docker exec api-staging curl -sf http://localhost:8080/health > /dev/null
+            do
+              echo "Waiting for API..."
+              sleep 2
+            done
+      
+            echo "API is ready."
+          '
+  
+      # -----------------------------------------------------
+      # Esperar UI
+      # -----------------------------------------------------
+  
+      - name: Wait for UI
+        run: |
+          timeout 120 bash -c '
+            until curl -sf http://localhost > /dev/null
+            do
+              echo "Waiting for UI..."
+              sleep 2
+            done
+  
+            echo "UI is ready."
+          '
+  
+      # -----------------------------------------------------
+      # Smoke Tests
+      # -----------------------------------------------------
+  
+      - name: Run Smoke Tests
+        run: |
+          echo "Checking API..."
+          curl --fail http://localhost:8080/health
+  
+          echo "Checking UI..."
+          curl --fail http://localhost
+  
+      # -----------------------------------------------------
+      # Mostrar logs si falla
+      # -----------------------------------------------------
+  
+      - name: Show Docker Logs
+        if: failure()
+        run: |
+          echo "===================="
+          echo "SQL SERVER"
+          echo "===================="
+          docker logs sqlserver-staging || true
+  
+          echo "===================="
+          echo "API"
+          echo "===================="
+          docker logs api-staging || true
+  
+          echo "===================="
+          echo "UI"
+          echo "===================="
+          docker logs ui-staging || true
+  
+      # -----------------------------------------------------
+      # Cleanup
+      # -----------------------------------------------------
+  
+      - name: Stop Staging Environment
+        if: always()
+        run: |
+          docker compose \
+            -f docker-compose.staging.yml \
+            down -v
+
+  # ─────────────────────────────────────────────────────────
+  # JOB 6 — DEPLOY TO PRODUCTION
+  # Promueve las imágenes validadas en Staging y despliega
+  # el entorno Production.
+  # ─────────────────────────────────────────────────────────
+  
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+  
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  
+    environment:
+      name: production
+  
+    steps:
+  
+      - uses: actions/checkout@v4
+  
+      # -----------------------------------------------------
+      # Normalizar nombre del repositorio
+      # -----------------------------------------------------
+  
+      - name: Normalize Repository Name
+        run: |
+          echo "REPOSITORY_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+  
+      # -----------------------------------------------------
+      # Login GHCR
+      # -----------------------------------------------------
+  
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+  
+      # -----------------------------------------------------
+      # Descargar imágenes de Staging
+      # -----------------------------------------------------
+  
+      - name: Pull Staging Images
+        run: |
+          docker pull ghcr.io/${{ env.REPOSITORY_LC }}/api:staging
+          docker pull ghcr.io/${{ env.REPOSITORY_LC }}/ui:staging
+  
+      # -----------------------------------------------------
+      # Promover imágenes
+      # staging -> latest
+      # -----------------------------------------------------
+  
+      - name: Promote Images
+        run: |
+          docker tag ghcr.io/${{ env.REPOSITORY_LC }}/api:staging \
+                     ghcr.io/${{ env.REPOSITORY_LC }}/api:latest
+  
+          docker tag ghcr.io/${{ env.REPOSITORY_LC }}/ui:staging \
+                     ghcr.io/${{ env.REPOSITORY_LC }}/ui:latest
+  
+      # -----------------------------------------------------
+      # Publicar imágenes latest
+      # -----------------------------------------------------
+  
+      - name: Push Production Images
+        run: |
+          docker push ghcr.io/${{ env.REPOSITORY_LC }}/api:latest
+          docker push ghcr.io/${{ env.REPOSITORY_LC }}/ui:latest
+  
+      # -----------------------------------------------------
+      # Levantar Production
+      # -----------------------------------------------------
+  
+      - name: Start Production Environment
+        env:
+          SQL_PASSWORD: ${{ secrets.SQL_PASSWORD }}
+          REPOSITORY_LC: ${{ env.REPOSITORY_LC }}
+        run: |
+          docker compose \
+            -f docker-compose.production.yml \
+            up -d
+  
+      # -----------------------------------------------------
+      # Esperar API
+      # -----------------------------------------------------
+  
+      - name: Wait for API
+        run: |
+          timeout 120 bash -c '
+            until curl -sf http://localhost:8080/health > /dev/null
+            do
+              echo "Waiting for API..."
+              sleep 2
+            done
+  
+            echo "API is ready."
+          '
+  
+      # -----------------------------------------------------
+      # Esperar UI
+      # -----------------------------------------------------
+  
+      - name: Wait for UI
+        run: |
+          timeout 120 bash -c '
+            until curl -sf http://localhost > /dev/null
+            do
+              echo "Waiting for UI..."
+              sleep 2
+            done
+  
+            echo "UI is ready."
+          '
+  
+      # -----------------------------------------------------
+      # Smoke Tests
+      # -----------------------------------------------------
+  
+      - name: Run Smoke Tests
+        run: |
+          echo "Checking API..."
+          curl --fail http://localhost:8080/health
+  
+          echo "Checking UI..."
+          curl --fail http://localhost
+  
+      # -----------------------------------------------------
+      # Mostrar logs si falla
+      # -----------------------------------------------------
+  
+      - name: Show Docker Logs
+        if: failure()
+        run: |
+          echo "===================="
+          echo "SQL SERVER"
+          echo "===================="
+          docker logs sqlserver-production || true
+  
+          echo "===================="
+          echo "API"
+          echo "===================="
+          docker logs api-production || true
+  
+          echo "===================="
+          echo "UI"
+          echo "===================="
+          docker logs ui-production || true
+  
+      # -----------------------------------------------------
+      # Cleanup
+      # -----------------------------------------------------
+  
+      - name: Stop Production Environment
+        if: always()
+        run: |
+          docker compose \
+            -f docker-compose.production.yml \
+            down -v

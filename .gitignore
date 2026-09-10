@@ -1,0 +1,21 @@
+# .NET
+bin/
+obj/
+*.user
+
+# Angular
+node_modules/
+dist/
+.angular/     # AÑADIR — la caché de Angular no debe subir a git
+
+# Entorno
+.env
+*.env.local
+
+# Visual Studio
+.vs/
+*.suo
+
+# Resultados de tests
+test-results/
+*.trx

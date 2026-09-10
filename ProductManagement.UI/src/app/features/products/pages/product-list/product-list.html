@@ -1,0 +1,332 @@
+<div class="product-list-container">
+
+
+  <div class="toolbar">
+
+
+    <h2 id="products-title">
+      Products
+    </h2>
+
+
+
+    <button
+
+      id="btn-create-product"
+
+      mat-raised-button
+
+      color="primary"
+
+      routerLink="/products/create">
+
+
+      <mat-icon>
+        add
+      </mat-icon>
+
+
+      Create Product
+
+
+    </button>
+
+
+  </div>
+
+
+
+  <div class="search-container">
+
+
+      <input
+
+      id="search-product-id"
+
+      type="number"
+
+      placeholder="Search by ID..."
+
+      [(ngModel)]="searchId"
+
+      (input)="searchById()" />
+
+
+  </div>
+
+
+
+
+  <table
+
+    id="products-table"
+
+    class="product-table">
+
+
+    <thead>
+
+
+      <tr>
+
+
+        <th id="column-id">
+          ID
+        </th>
+
+
+        <th id="column-name">
+          Name
+        </th>
+
+
+        <th id="column-description">
+          Description
+        </th>
+
+
+        <th id="column-price">
+          Price
+        </th>
+
+
+        <th id="column-stock">
+          Stock
+        </th>
+
+
+        <th id="column-active">
+          Active
+        </th>
+
+
+        <th id="column-actions">
+          Actions
+        </th>
+
+
+      </tr>
+
+
+    </thead>
+
+
+
+
+    <tbody>
+
+
+
+      @if(filteredProducts.length === 0)
+
+      {
+
+
+          <tr>
+
+
+            <td
+
+              id="empty-products-message"
+
+              colspan="7"
+
+              class="empty-table">
+
+
+              No products found
+
+
+            </td>
+
+
+          </tr>
+
+
+      }
+
+
+      @else
+
+
+      {
+
+
+
+        @for(product of filteredProducts; track product.id)
+
+        {
+
+
+          <tr
+
+            id="product-row-{{product.id}}">
+
+
+              <td>
+                {{ product.id }}
+              </td>
+
+
+
+              <td>
+                {{ product.name }}
+              </td>
+
+
+
+              <td>
+                {{product.description}}
+              </td>
+
+
+
+              <td>
+                ${{ product.price }}
+              </td>
+
+
+
+              <td>
+                {{ product.stock }}
+              </td>
+
+
+
+
+              <td>
+
+
+                @if(product.isActive)
+
+                {
+
+
+                  <span
+
+                    id="product-active-{{product.id}}"
+
+                    class="status-yes">
+
+
+                    Yes
+
+
+                  </span>
+
+
+                }
+
+                @else
+
+                {
+
+
+                  <span
+
+                    id="product-active-{{product.id}}"
+
+                    class="status-no">
+
+
+                    No
+
+
+                  </span>
+
+
+                }
+
+
+              </td>
+
+
+
+
+
+              <td class="actions-column">
+
+
+
+
+                <button 
+
+
+                  id="btn-edit-product-{{product.id}}"
+
+
+                  mat-raised-button
+
+
+                  [routerLink]="['/products/edit', product.id]">
+
+
+                  <mat-icon>
+
+                    edit
+
+                  </mat-icon>
+
+
+                  Edit
+
+
+
+                </button>
+
+
+
+
+
+                <button
+
+
+                  id="btn-delete-product-{{product.id}}"
+
+
+                  mat-raised-button
+
+
+                  color="warn"
+
+
+                  (click)="deleteProduct(product.id)">
+
+
+
+                  <mat-icon>
+
+                    delete
+
+                  </mat-icon>
+
+
+                  Delete
+
+
+
+                </button>
+
+
+
+              </td>
+
+
+
+          </tr>
+
+
+        }
+
+
+      }
+
+
+
+    </tbody>
+
+
+  </table>
+
+
+</div>
