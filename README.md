@@ -1,3 +1,5 @@
+Test
+
 # Implementación de un Pipeline CI/CD con ASP.NET Core, Angular y Docker
 
 Este repositorio tiene como objetivo demostrar la implementación de un pipeline completo de **Integración Continua y Despliegue Continuo (CI/CD)** utilizando tecnologías ampliamente empleadas en entornos profesionales.
