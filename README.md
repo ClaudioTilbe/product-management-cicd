@@ -57,6 +57,16 @@ Aunque el repositorio tiene fines educativos y no dispone de servidores reales d
 
 ---
 
+## Arquitectura del Pipeline CI/CD
+
+El siguiente diagrama representa el flujo completo del pipeline, desde la compilación y las pruebas automatizadas hasta la validación de Staging y la promoción hacia Production.
+
+<p align="center">
+    <img src="assets/Arquitectura del Pipeline CI_CD.png" alt="Arquitectura del Pipeline CI/CD" width="1200">
+</p>
+
+---
+
 ## Flujo del Pipeline
 
 ```text
